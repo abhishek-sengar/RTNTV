@@ -7,7 +7,6 @@ import (
 )
 
 func main() {
-	fmt.Println("Hello go")
 
 	subnet, err := snmp.GetLocalSubnet()
 	if err != nil {
@@ -19,4 +18,9 @@ func main() {
 	devices := snmp.ScanSubnet(subnet)
 
 	fmt.Printf("Devices %v", devices)
+
+	fmt.Println("Scanning SNMP + LLDP Discovery ... ")
+
+	snmp.StartDiscovery()
+
 }

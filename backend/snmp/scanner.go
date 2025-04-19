@@ -15,6 +15,7 @@ type DiscoveredDevice struct {
 	Name      string
 	UpTime    string
 	SysDesc   string
+	DevMet    DeviceMetrics
 }
 
 func scanHost(ip string) (*DiscoveredDevice, error) {
@@ -46,7 +47,7 @@ func scanHost(ip string) (*DiscoveredDevice, error) {
 		return nil, fmt.Errorf("SNMP get failed: %v", err)
 	}
 
-	fmt.Printf("Result %v", result)
+	//fmt.Printf("Result %v", result)
 
 	device := &DiscoveredDevice{IPAddress: ip}
 	for _, variable := range result.Variables {
@@ -57,6 +58,19 @@ func scanHost(ip string) (*DiscoveredDevice, error) {
 			device.UpTime = fmt.Sprint(variable.Value)
 		case ".1.3.6.1.2.1.1.1.0":
 			device.SysDesc = string(variable.Value.([]byte))
+		}
+
+		fmt.Println(device.IPAddress)
+		fmt.Println("Finding Device Metrices ...")
+
+		metrics, err := GetDeviceMetrics(params, device.SysDesc)
+		fmt.Println(metrics)
+		if err == nil && metrics != nil {
+			device.DevMet.CPUUsage = metrics.CPUUsage
+			device.DevMet.CPUIdle = metrics.CPUIdle
+			device.DevMet.MemTotalKB = metrics.MemTotalKB
+			device.DevMet.MemFreeKB = metrics.MemFreeKB
+			device.DevMet.Processes = metrics.Processes
 		}
 	}
 
@@ -74,9 +88,11 @@ func ScanSubnet(subnet string) []*DiscoveredDevice {
 		discovered  []*DiscoveredDevice
 		mutex       sync.Mutex
 		wg          sync.WaitGroup
-		concurrency = 25
+		concurrency = 250
 		semaphore   = make(chan struct{}, concurrency)
 	)
+
+	fmt.Println("Scanning subnetworks ....... ..... ......")
 
 	for ip := ip.Mask(ipnet.Mask); ipnet.Contains(ip); inc(ip) {
 		currentIP := ip.String()
@@ -98,7 +114,7 @@ func ScanSubnet(subnet string) []*DiscoveredDevice {
 				mutex.Unlock()
 				fmt.Printf("\nFound Device: \n\tName: %s\n\tIP: %s\n\tDesc: %s\n\tUptime:  %s\n", device.Name, currentIP, device.SysDesc, device.UpTime)
 			} else {
-				fmt.Printf("Not Found: %s \n", currentIP)
+				//fmt.Printf("Not Found: %s \n", currentIP)
 			}
 		}(currentIP)
 	}
@@ -147,6 +163,7 @@ func GetLocalSubnet() (string, error) {
 			if ip == nil || ip.IsLoopback() || ip.To4() == nil {
 				continue
 			}
+			fmt.Println(ip)
 
 			return ipnet.String(), nil
 		}
